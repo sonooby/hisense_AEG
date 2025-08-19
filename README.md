@@ -1,7 +1,5 @@
-# AEH-W4G2 Replacement Software for Hisense AC Units
-
-This is a work-in-progress (WiP) replacement software designed as an alternative to AEH-W4G2 for Hisense air conditioning units. This software is an ESPHome component and can be installed on AEH-W4G2 via UART or on other devices compatible with ESPHome.
-
+esp8266 with rs485 for hisense AC air condition integrate home assistant without AEH-W4A1 (sold out) or AEH-W4G1 (not compatible)
+ 
 Important Notice:
 
 - This software has only been tested with my specific Hisense AC unit. Compatibility with other units is not guaranteed and it may not work as intended, or could potentially cause issues.
@@ -11,12 +9,8 @@ Use this software at your own risk.
 Contributions and Improvements:
 
 
-# Docs:
-
-[Usage](./docs/usage.md)
-[Flashing AEH-W4G2](./docs/install_on_w4g2/instalation.md)
-
 # Thanks
+to pio2398
 Project base on some work from:
 https://github.com/straga/scrivo_project by @straga
 Work of @polsup2 from https://github.com/straga/scrivo_project/issues/1. 
