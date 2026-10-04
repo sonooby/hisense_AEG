@@ -23,10 +23,29 @@ AirConditioner = hisense_ac_ns.class_(
 CONF_HISENSE_ID = "hisense_id"
 
 
-CONFIG_SCHEMA = cv.All(
-    climate.CLIMATE_SCHEMA.extend(
+# ESPHome API migration:
+#   - CLIMATE_SCHEMA was deprecated in 2025.05 and removed in 2025.11.
+#   - The new helper `climate.climate_schema(<Class>)` replaces it and also
+#     auto-generates the component ID, so the explicit
+#     `cv.GenerateID(): cv.declare_id(AirConditioner)` entry is no longer
+#     required (and would actually collide with the auto-generated one).
+#
+# The try/except keeps the component buildable on older ESPHome releases too
+# (anything prior to 2025.11 where `climate_schema` did not yet exist).
+try:
+    _BASE_CLIMATE_SCHEMA = climate.climate_schema(AirConditioner)
+except AttributeError:
+    # Fallback for ESPHome < 2025.11
+    _BASE_CLIMATE_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(AirConditioner),
+        }
+    )
+
+
+CONFIG_SCHEMA = cv.All(
+    _BASE_CLIMATE_SCHEMA.extend(
+        {
             cv.Optional(CONF_FLOW_CONTROL_PIN): pins.gpio_output_pin_schema,
         }
     )
@@ -52,4 +71,4 @@ async def to_code(config):
         cg.add(var.set_flow_control_pin(pin))
 
     if CONF_DISPLAY in config:
-        cg.add(var.set_display_state(config[CONF_DISPLAY]))
+        cg.add(var.set_display_switch(config[CONF_DISPLAY]))

@@ -4,6 +4,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/core/component.h"
 
+#include <string>
 #include <vector>
 
 #ifdef USE_SENSOR
@@ -42,6 +43,14 @@ public:
   }
   uint8_t waiting_for_response{0};
   void set_display_switch(bool state);
+  void set_economy_switch(bool state);
+  void set_turbo_switch(bool state);
+  void set_sleep_profile(uint8_t profile);
+
+  bool get_display_switch() const { return display_enable; }
+  bool get_economy_switch() const { return economy_enable_; }
+  bool get_turbo_switch() const { return turbo_enable_; }
+  uint8_t get_sleep_profile() const { return sleep_profile_; }
 
 protected:
   GPIOPin *flow_control_pin_{nullptr};
@@ -72,7 +81,20 @@ protected:
   uint32_t last_extra_log_print{0};
   bool print_extra_log_in_this_loop{true};
 
-  bool display_enable {true}; // Status of display screen of AC unit.
+  bool display_enable {true}; // Persistent DIMMER state exposed to HA.
+  bool display_raw_candidate_{true};
+  bool display_raw_initialized_{false};
+  uint32_t display_raw_changed_at_{0};
+  bool economy_enable_{false};
+  bool turbo_enable_{false};
+  uint8_t sleep_profile_{0};
+
+  // SUPER/Turbo restore context. Hisense changes setpoint/fan on entry but
+  // clearing the Turbo flag alone does not restore the previous values.
+  uint8_t last_fan_status_raw_{0x01};
+  bool turbo_restore_valid_{false};
+  float turbo_restore_temperature_{24.0f};
+  uint8_t turbo_restore_fan_status_raw_{0x01};
 
 
   float get_setup_priority() const override;
@@ -117,10 +139,16 @@ protected:
   struct HvacSettings {
     esphome::optional<esphome::climate::ClimateMode> mode;
     esphome::optional<esphome::climate::ClimateFanMode> fan_mode;
+    esphome::optional<std::string> custom_fan_mode;
+    // Direct protocol fan command, used to restore the exact pre-SUPER speed.
+    esphome::optional<uint8_t> raw_fan_command;
     esphome::optional<esphome::climate::ClimateSwingMode> swing_mode;
     esphome::optional<float> target_temperature;
     esphome::optional<esphome::climate::ClimatePreset> preset;
     esphome::optional<bool> display;
+    esphome::optional<bool> economy;
+    esphome::optional<bool> turbo;
+    esphome::optional<uint8_t> sleep_profile;
 
     HvacSettings(){};
     HvacSettings(const HvacSettings &) = default;
@@ -165,7 +193,30 @@ int encode_climateMode(const climate::ClimateMode mode) {
   }
 }
 
+uint8_t encode_custom_fan_mode(const std::string &mode) {
+  if (mode == "AUTO")   return 0x01;
+  if (mode == "QUIET")  return 0x03;
+  if (mode == "LOWER")  return 0x0B;
+  if (mode == "LOW")    return 0x0D;
+  if (mode == "MEDIUM") return 0x0F;
+  if (mode == "HIGH")   return 0x11;
+  if (mode == "HIGHER") return 0x13;
+  return 0x01;
+}
 
+// Command-frame codes for native ESPHome fan modes.
+// The command codes are one greater than the corresponding non-AUTO status
+// codes observed from the unit.
+uint8_t encode_fan_mode(const climate::ClimateFanMode mode) {
+  switch (mode) {
+    case climate::CLIMATE_FAN_AUTO:   return 0x01;
+    case climate::CLIMATE_FAN_QUIET:  return 0x03;
+    case climate::CLIMATE_FAN_LOW:    return 0x0D;
+    case climate::CLIMATE_FAN_MEDIUM: return 0x0F;
+    case climate::CLIMATE_FAN_HIGH:   return 0x11;
+    default:                           return 0x01;
+  }
+}
 };
 
 
